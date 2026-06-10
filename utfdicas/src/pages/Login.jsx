@@ -26,7 +26,7 @@ function Login() {
         email,
         password: senha,
         options: {
-            emailRedirectTo: "http://localhost:5173/login",
+            emailRedirectTo: "https://utfdicas-a1tr.vercel.app/login",
         },
         })
 
