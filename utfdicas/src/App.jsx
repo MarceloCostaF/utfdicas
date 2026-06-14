@@ -8,6 +8,8 @@ import Perfil from "./pages/Perfil"
 import MateriaDetalhe from "./pages/MateriaDetalhe"
 import Login from "./pages/Login"
 import ProfessorDetalhe from "./pages/ProfessorDetalhe"
+import NovaAvaliacao from "./pages/NovaAvaliacao"
+import MateriaProfessorDetalhe from "./pages/MateriaProfessorDetalhe"
 
 function App() {
   return (
@@ -20,6 +22,12 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/professor/:id" element={<ProfessorDetalhe />} />
+        <Route path="/nova-avaliacao" element={<NovaAvaliacao />} />
+        <Route
+          path="/materia/:materiaId/professor/:professorId"
+          element={<MateriaProfessorDetalhe />}
+        />
+
         <Route
           path="/materia/:id"
           element={<MateriaDetalhe />}

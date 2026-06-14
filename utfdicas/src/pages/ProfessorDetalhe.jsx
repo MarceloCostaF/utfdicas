@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import DicaCard from "../components/DicaCard"
 import { supabase } from "../lib/supabase"
+import { Link } from "react-router-dom"
 
 function ProfessorDetalhe() {
   const { id } = useParams()
@@ -10,6 +11,8 @@ function ProfessorDetalhe() {
   const [professor, setProfessor] = useState(null)
   const [dicas, setDicas] = useState([])
   const [loading, setLoading] = useState(true)
+  const [materiasProfessor, setMateriasProfessor] = useState([])
+  const [avaliacoes, setAvaliacoes] = useState([])
 
   useEffect(() => {
     carregarDados()
@@ -22,11 +25,35 @@ function ProfessorDetalhe() {
       .eq("id", id)
       .single()
 
+    const { data: materiasProfessor } = await supabase
+      .from("professor_materia")
+      .select(`
+        materias (
+          id,
+          nome
+        )
+      `)
+      .eq("professor_id", id)
+
+    const { data: avaliacoesData, error: avaliacoesError } = await supabase
+      .from("avaliacoes")
+      .select("*")
+      .eq("professor_id", id)
+
+    if (avaliacoesError) {
+      console.error("Erro ao carregar avaliações:", avaliacoesError)
+    }
+
+    setAvaliacoes(avaliacoesData || [])
+      
     const { data: dicasData, error: dicasError } = await supabase
       .from("dicas")
       .select(`
         *,
         materias (
+          nome
+        ),
+        perfis (
           nome
         )
       `)
@@ -42,7 +69,28 @@ function ProfessorDetalhe() {
     setProfessor(professorData)
     setDicas(dicasData || [])
     setLoading(false)
+    setMateriasProfessor(
+      materiasProfessor?.map((item) => item.materias) || []
+    )
   }
+
+  const mediaDificuldade =
+    avaliacoes.length > 0
+      ? avaliacoes.reduce(
+          (soma, av) => soma + Number(av.dificuldade),
+          0
+        ) / avaliacoes.length
+      : 0
+
+  const percentualRecomendacao =
+    avaliacoes.length > 0
+      ? (
+          avaliacoes.filter(
+            (av) => av.recomendaria
+          ).length /
+          avaliacoes.length
+        ) * 100
+      : 0
 
   if (loading) {
     return (
@@ -76,6 +124,40 @@ function ProfessorDetalhe() {
             {professor.nome}
           </h1>
 
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-2xl font-bold text-indigo-600">
+                {mediaDificuldade.toFixed(1)}
+              </p>
+
+              <p className="text-sm text-slate-500">
+                Dificuldade média
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-2xl font-bold text-indigo-600">
+                {avaliacoes.length}
+              </p>
+
+              <p className="text-sm text-slate-500">
+                Avaliações
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-2xl font-bold text-indigo-600">
+                {percentualRecomendacao.toFixed(0)}%
+              </p>
+
+              <p className="text-sm text-slate-500">
+                Recomendariam
+              </p>
+            </div>
+
+          </div>
+
           <p className="mt-2 text-slate-600">
             Área: {professor.area || "Área não informada"}
           </p>
@@ -97,6 +179,24 @@ function ProfessorDetalhe() {
               <p className="text-sm text-slate-500">
                 Curtidas recebidas nas dicas
               </p>
+            </div>
+          </div>
+          
+          <div className="mt-8">
+            <h2 className="mb-3 text-lg font-semibold text-slate-800">
+              Matérias que leciona
+            </h2>
+
+            <div className="flex flex-wrap gap-2">
+              {materiasProfessor.map((materia) => (
+                <Link
+                  key={materia.id}
+                  to={`/materia/${materia.id}/professor/${id}`}
+                  className="rounded-full bg-indigo-100 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-200"
+                >
+                  {materia.nome}
+                </Link>
+              ))}
             </div>
           </div>
         </section>
@@ -121,7 +221,7 @@ function ProfessorDetalhe() {
                 professorId={professor.id}
                 categoria={dica.categoria}
                 dica={dica.dica}
-                autor={dica.autor || "Anônimo"}
+                autor={dica.perfis?.nome || dica.autor || "Anônimo"}
                 curtidas={dica.curtidas || 0}
                 />
               ))}

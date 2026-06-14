@@ -34,6 +34,9 @@ function Home() {
         ),
         professores (
           nome
+        ),
+        perfis (
+          nome
         )
       `)
       .order("created_at", {
@@ -45,11 +48,15 @@ function Home() {
       error: materiasError
     } = await supabase
       .from("materias")
-      .select("*")
-      .order("dificuldade", {
-        ascending: false
-      })
-      .limit(4)
+      .select(`
+        *,
+        dicas (
+          id
+        ),
+        avaliacoes (
+          id
+        )
+      `)
 
     const {
       data: professoresData,
@@ -86,7 +93,17 @@ function Home() {
     }
 
     setDicas(dicasData || [])
-    setMateriasAlta(materiasData || [])
+    const materiasOrdenadas = (materiasData || [])
+      .map((materia) => ({
+        ...materia,
+        totalInteracoes:
+          (materia.dicas?.length || 0) +
+          (materia.avaliacoes?.length || 0),
+      }))
+      .sort((a, b) => b.totalInteracoes - a.totalInteracoes)
+      .slice(0, 4)
+
+    setMateriasAlta(materiasOrdenadas)
     setTotalProfessores(professoresData?.length || 0)
 
     setLoading(false)
@@ -344,32 +361,31 @@ function Home() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {materiasAlta.map((materia) => (
-              <div
+              <Link
                 key={materia.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                to={`/materia/${materia.id}`}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md block"
               >
                 <h4 className="font-semibold text-slate-800">
                   {materia.nome}
                 </h4>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Dificuldade: {materia.dificuldade || "-"} / 5
-                </p>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
 
         <section>
           <h3 className="mb-4 text-xl font-bold text-slate-800">
-            Dicas
+            {busca ? `Resultados para "${busca}"` : "Dicas"}
           </h3>
 
           {loading ? (
             <p className="text-slate-500">Carregando dicas...</p>
           ) : dicasFiltradas.length === 0 ? (
             <p className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">
-              Ainda não há dicas cadastradas.
+              {busca
+                ? "Nenhuma dica encontrada para essa busca."
+                : "Ainda não há dicas cadastradas."}
             </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -380,7 +396,7 @@ function Home() {
                   professor={dica.professores?.nome || "Professor não informado"}
                   categoria={dica.categoria}
                   dica={dica.dica}
-                  autor={dica.autor || "Anônimo"}
+                  autor={dica.perfis?.nome || dica.autor || "Anônimo"}
                   curtidas={dica.curtidas || 0}
                   onCurtir={() => curtirDica(dica.id, dica.curtidas || 0)}
                   materiaId={dica.materia_id}

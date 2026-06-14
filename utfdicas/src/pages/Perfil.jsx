@@ -8,13 +8,20 @@ function Perfil() {
   const navigate = useNavigate()
 
   const [user, setUser] = useState(null)
+  const [perfil, setPerfil] = useState(null)
   const [dicas, setDicas] = useState([])
   const [loading, setLoading] = useState(true)
-  const [perfil, setPerfil] = useState(null)
 
   useEffect(() => {
     carregarPerfil()
   }, [])
+
+  function calcularNivel(qtdDicas) {
+    if (qtdDicas >= 50) return "🥇 Especialista"
+    if (qtdDicas >= 20) return "🥈 Mentor"
+    if (qtdDicas >= 5) return "🥉 Colaborador"
+    return "🌱 Iniciante"
+  }
 
   async function carregarPerfil() {
     const { data: userData } = await supabase.auth.getUser()
@@ -26,15 +33,11 @@ function Perfil() {
 
     setUser(userData.user)
 
-    const { data: perfilData, error: perfilError } = await supabase
+    const { data: perfilData } = await supabase
       .from("perfis")
       .select("*")
       .eq("id", userData.user.id)
       .single()
-
-    if (perfilError) {
-      console.error("Erro ao carregar perfil:", perfilError)
-    }
 
     setPerfil(perfilData)
 
@@ -53,7 +56,7 @@ function Perfil() {
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Erro ao carregar dicas do usuário:", error)
+      console.error("Erro ao carregar dicas:", error)
       setLoading(false)
       return
     }
@@ -62,14 +65,31 @@ function Perfil() {
     setLoading(false)
   }
 
+  const totalCurtidas = dicas.reduce(
+    (total, dica) => total + (dica.curtidas || 0),
+    0
+  )
+
+  const materiasComentadas = new Set(
+    dicas.map((dica) => dica.materia_id)
+  ).size
+
+  const professoresComentados = new Set(
+    dicas.map((dica) => dica.professor_id)
+  ).size
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-6 py-8">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-3xl font-bold text-slate-800">
-            {perfil?.nome || "Meu Perfil"}
+          <p className="text-sm font-medium text-indigo-600">
+            Meu perfil
+          </p>
+
+          <h1 className="mt-2 text-3xl font-bold text-slate-800">
+            {perfil?.nome || "Usuário"}
           </h1>
 
           <p className="mt-2 text-slate-600">
@@ -81,33 +101,46 @@ function Perfil() {
             {user?.email}
           </p>
 
-          {perfil?.bio && (
-            <p className="mt-4 text-slate-600">
-              {perfil.bio}
+          <div className="mt-6 inline-flex rounded-full bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-700">
+            {calcularNivel(dicas.length)}
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-bold text-indigo-600">
+              {dicas.length}
             </p>
-          )}
+            <p className="text-sm text-slate-500">
+              Dicas publicadas
+            </p>
+          </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-2xl font-bold text-indigo-600">
-                {dicas.length}
-              </p>
-              <p className="text-sm text-slate-500">Dicas publicadas</p>
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-bold text-indigo-600">
+              {totalCurtidas}
+            </p>
+            <p className="text-sm text-slate-500">
+              Curtidas recebidas
+            </p>
+          </div>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-2xl font-bold text-indigo-600">
-                {dicas.reduce((total, dica) => total + (dica.curtidas || 0), 0)}
-              </p>
-              <p className="text-sm text-slate-500">Curtidas recebidas</p>
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-bold text-indigo-600">
+              {materiasComentadas}
+            </p>
+            <p className="text-sm text-slate-500">
+              Matérias comentadas
+            </p>
+          </div>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-2xl font-bold text-indigo-600">
-                {new Set(dicas.map((dica) => dica.materia_id)).size}
-              </p>
-              <p className="text-sm text-slate-500">Matérias comentadas</p>
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-bold text-indigo-600">
+              {professoresComentados}
+            </p>
+            <p className="text-sm text-slate-500">
+              Professores comentados
+            </p>
           </div>
         </section>
 
@@ -128,7 +161,9 @@ function Perfil() {
                 <DicaCard
                   key={dica.id}
                   materia={dica.materias?.nome || "Matéria não informada"}
+                  materiaId={dica.materia_id}
                   professor={dica.professores?.nome || "Professor não informado"}
+                  professorId={dica.professor_id}
                   categoria={dica.categoria}
                   dica={dica.dica}
                   autor={dica.autor || "Anônimo"}

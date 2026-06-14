@@ -1,25 +1,26 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import { supabase } from "../lib/supabase"
-import { useNavigate } from "react-router-dom"
 
-function NovaDica() {
-  const [materias, setMaterias] = useState([])
-  const [professores, setProfessores] = useState([])
-
-  const [materiaId, setMateriaId] = useState("")
-  const [professorId, setProfessorId] = useState("")
-  const [categoria, setCategoria] = useState("Estudo")
-  const [autor, setAutor] = useState("")
-  const [dica, setDica] = useState("")
-
-  const [enviando, setEnviando] = useState(false)
-  const [mensagem, setMensagem] = useState("")
+function NovaAvaliacao() {
   const navigate = useNavigate()
 
+  const [professores, setProfessores] = useState([])
+  const [materias, setMaterias] = useState([])
+
+  const [professorId, setProfessorId] = useState("")
+  const [materiaId, setMateriaId] = useState("")
+  const [dificuldade, setDificuldade] = useState(3)
+  const [recomendaria, setRecomendaria] = useState(true)
+  const [comentario, setComentario] = useState("")
+
+  const [mensagem, setMensagem] = useState("")
+  const [enviando, setEnviando] = useState(false)
+
   useEffect(() => {
-  verificarLogin()
-  carregarDados()
+    verificarLogin()
+    carregarProfessores()
   }, [])
 
   async function verificarLogin() {
@@ -30,25 +31,25 @@ function NovaDica() {
     }
   }
 
-  async function carregarDados() {
-    const { data: professoresData, error: professoresError } = await supabase
+  async function carregarProfessores() {
+    const { data, error } = await supabase
       .from("professores")
       .select("*")
       .order("nome", { ascending: true })
 
-    if (professoresError) {
-      console.error("Erro ao carregar professores:", professoresError)
+    if (error) {
+      console.error(error)
       return
     }
 
-    setProfessores(professoresData || [])
+    setProfessores(data || [])
   }
 
-  async function carregarMateriasDoProfessor(professorIdSelecionado) {
-    setProfessorId(professorIdSelecionado)
+  async function carregarMateriasDoProfessor(id) {
+    setProfessorId(id)
     setMateriaId("")
 
-    if (!professorIdSelecionado) {
+    if (!id) {
       setMaterias([])
       return
     }
@@ -58,59 +59,50 @@ function NovaDica() {
       .select(`
         materias (
           id,
-          nome,
-          categoria,
-          dificuldade
+          nome
         )
       `)
-      .eq("professor_id", professorIdSelecionado)
+      .eq("professor_id", id)
 
     if (error) {
-      console.error("Erro ao carregar matérias do professor:", error)
+      console.error(error)
       return
     }
 
-    const materiasFiltradas = data.map((item) => item.materias)
-
-    setMaterias(materiasFiltradas)
+    setMaterias(data.map((item) => item.materias))
   }
 
-  async function enviarDica(event) {
-    event.preventDefault()
+  async function enviarAvaliacao(e) {
+    e.preventDefault()
     setEnviando(true)
     setMensagem("")
 
-    const { data: userData } =
-      await supabase.auth.getUser()
+    const { data: userData } = await supabase.auth.getUser()
 
-    const { error } =
-      await supabase
-        .from("dicas")
-        .insert({
-          materia_id: Number(materiaId),
-          professor_id: professorId
-            ? Number(professorId)
-            : null,
-          categoria,
-          dica,
-          autor: userData.user.email,
-          user_id: userData.user.id,
-          curtidas: 0,
-        })
+    const { error } = await supabase
+      .from("avaliacoes")
+      .upsert({
+        user_id: userData.user.id,
+        materia_id: Number(materiaId),
+        professor_id: Number(professorId),
+        dificuldade: Number(dificuldade),
+        recomendaria,
+        comentario,
+      }, {
+        onConflict: "user_id,materia_id,professor_id"
+      })
 
     if (error) {
-      console.error("Erro ao enviar dica:", error)
-      setMensagem(`Erro: ${error.message}`)
+      console.error(error)
+      setMensagem("Erro ao salvar avaliação.")
       setEnviando(false)
       return
     }
 
-    setMensagem("Dica enviada com sucesso!")
-    setMateriaId("")
-    setProfessorId("")
-    setCategoria("Estudo")
-    setAutor("")
-    setDica("")
+    setMensagem("Avaliação salva com sucesso!")
+    setDificuldade(3)
+    setRecomendaria(true)
+    setComentario("")
     setEnviando(false)
   }
 
@@ -119,15 +111,15 @@ function NovaDica() {
       <Navbar />
 
       <main className="max-w-3xl mx-auto px-6 py-8">
-        <h1 className="text-3xl font-bold text-slate-800">Nova Dica</h1>
+        <h1 className="text-3xl font-bold text-slate-800">Nova Avaliação</h1>
 
         <p className="mt-2 text-slate-600">
-          Compartilhe uma experiência que possa ajudar outros alunos.
+          Avalie sua experiência com uma matéria e professor.
         </p>
 
         <form
-          onSubmit={enviarDica}
-          className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5"
+          onSubmit={enviarAvaliacao}
+          className="mt-8 space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
         >
           <div>
             <label className="block text-sm font-medium text-slate-700">
@@ -137,10 +129,10 @@ function NovaDica() {
             <select
               value={professorId}
               onChange={(e) => carregarMateriasDoProfessor(e.target.value)}
+              required
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
             >
               <option value="">Selecione um professor</option>
-
               {professores.map((professor) => (
                 <option key={professor.id} value={professor.id}>
                   {professor.nome}
@@ -162,9 +154,7 @@ function NovaDica() {
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400 disabled:bg-slate-100"
             >
               <option value="">
-                {professorId
-                  ? "Selecione uma matéria"
-                  : "Selecione um professor primeiro"}
+                {professorId ? "Selecione uma matéria" : "Selecione um professor primeiro"}
               </option>
 
               {materias.map((materia) => (
@@ -175,38 +165,52 @@ function NovaDica() {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Dificuldade percebida: {dificuldade}
+            </label>
+
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={dificuldade}
+              onChange={(e) => setDificuldade(e.target.value)}
+              className="mt-3 w-full"
+            />
+
+            <div className="mt-1 flex justify-between text-xs text-slate-500">
+              <span>Tranquila</span>
+              <span>Muito difícil</span>
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700">
-              Categoria
+              Você recomendaria cursar com esse professor?
             </label>
 
             <select
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
+              value={recomendaria ? "sim" : "nao"}
+              onChange={(e) => setRecomendaria(e.target.value === "sim")}
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
             >
-              <option>Estudo</option>
-              <option>Prova</option>
-              <option>Professor</option>
-              <option>Laboratório</option>
-              <option>Software</option>
-              <option>Carreira</option>
-              <option>Outros</option>
+              <option value="sim">Sim</option>
+              <option value="nao">Não</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700">
-              Sua dica
+              Comentário opcional
             </label>
 
             <textarea
-              rows="6"
-              value={dica}
-              onChange={(e) => setDica(e.target.value)}
-              required
-              placeholder="Conte o que estudar, como lidar com a matéria, onde focar..."
+              rows="4"
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value)}
+              placeholder="Ex: prova justa, cobra listas, explica bem..."
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
             />
           </div>
@@ -218,11 +222,10 @@ function NovaDica() {
           )}
 
           <button
-            type="submit"
             disabled={enviando}
             className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
           >
-            {enviando ? "Enviando..." : "Enviar dica"}
+            {enviando ? "Salvando..." : "Salvar avaliação"}
           </button>
         </form>
       </main>
@@ -230,4 +233,4 @@ function NovaDica() {
   )
 }
 
-export default NovaDica
+export default NovaAvaliacao

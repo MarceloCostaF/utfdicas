@@ -11,9 +11,34 @@ function Login() {
   const [mensagem, setMensagem] = useState("")
   const [erro, setErro] = useState("")
   const [loading, setLoading] = useState(false)
+
   const [nome, setNome] = useState("")
   const [curso, setCurso] = useState("")
   const [periodo, setPeriodo] = useState("")
+
+  const cursos = [
+    "Engenharia Química",
+    "Engenharia de Produção",
+    "Engenharia Mecânica",
+    "Engenharia de Materiais",
+    "Engenharia Ambiental",
+    "Tecnologo em Alimentos",
+    "Licenciatura em Química",
+    "Outro",
+  ]
+
+  const periodos = [
+    "1º período",
+    "2º período",
+    "3º período",
+    "4º período",
+    "5º período",
+    "6º período",
+    "7º período",
+    "8º período",
+    "9º período",
+    "10º período",
+  ]
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -21,43 +46,56 @@ function Login() {
     setErro("")
     setLoading(true)
 
+    const emailNormalizado = email.trim().toLowerCase()
+
     if (modoCadastro) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: senha,
-        options: {
-            emailRedirectTo: "https://utfdicas-a1tr.vercel.app/login",
-        },
-        })
+      const dominioValido = emailNormalizado.endsWith("@alunos.utfpr.edu.br")
 
-        if (error) {
-        setErro(error.message)
+      if (!dominioValido) {
+        setErro("Somente e-mails institucionais @alunos.utfpr.edu.br podem se cadastrar.")
         setLoading(false)
-        return
-        }
-
-        await supabase.from("perfis").insert({
-        id: data.user.id,
-        nome,
-        curso,
-        periodo,
-        })
-
-      setLoading(false)
-
-      if (error) {
-        setErro(error.message)
         return
       }
 
-      setMensagem("Conta criada! Verifique seu e-mail para confirmar o cadastro antes de entrar.")
+      const { data, error } = await supabase.auth.signUp({
+        email: emailNormalizado,
+        password: senha,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      })
+
+      if (error) {
+        setErro(error.message)
+        setLoading(false)
+        return
+      }
+
+      if (data.user) {
+        const { error: perfilError } = await supabase.from("perfis").insert({
+          id: data.user.id,
+          nome,
+          curso,
+          periodo,
+        })
+
+        if (perfilError) {
+          console.error("Erro ao criar perfil:", perfilError)
+        }
+      }
+
+      setMensagem("Conta criada! Verifique seu e-mail institucional para confirmar o cadastro antes de entrar.")
       setModoCadastro(false)
       setSenha("")
+      setNome("")
+      setCurso("")
+      setPeriodo("")
+      setLoading(false)
       return
     }
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: emailNormalizado,
       password: senha,
     })
 
@@ -91,7 +129,7 @@ function Login() {
           </div>
 
           <p className="text-sm text-indigo-100">
-            Plataforma colaborativa para estudantes.
+            Plataforma colaborativa para estudantes da UTFPR.
           </p>
         </section>
 
@@ -107,68 +145,86 @@ function Login() {
 
             <p className="mt-2 text-slate-500">
               {modoCadastro
-                ? "Crie sua conta para compartilhar dicas."
+                ? "Use seu e-mail institucional para participar da comunidade."
                 : "Acesse para publicar dicas e interagir com a comunidade."}
             </p>
 
-            {modoCadastro && (
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+              {modoCadastro && (
                 <>
-                    <div>
+                  <div>
                     <label className="text-sm font-medium text-slate-700">
-                        Nome
+                      Nome
                     </label>
                     <input
-                        type="text"
-                        value={nome}
-                        onChange={(e) => setNome(e.target.value)}
-                        placeholder="Seu nome"
-                        className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
-                        required
+                      type="text"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                      placeholder="Seu nome"
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
+                      required
                     />
-                    </div>
+                  </div>
 
-                    <div>
+                  <div>
                     <label className="text-sm font-medium text-slate-700">
-                        Curso
+                      Curso
                     </label>
-                    <input
-                        type="text"
+                    <select
                         value={curso}
                         onChange={(e) => setCurso(e.target.value)}
-                        placeholder="Ex: Engenharia Química"
                         className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
                         required
-                    />
-                    </div>
+                      >
+                        <option value="">Selecione seu curso</option>
 
-                    <div>
-                    <label className="text-sm font-medium text-slate-700">
-                        Período
-                    </label>
-                    <input
-                        type="text"
-                        value={periodo}
-                        onChange={(e) => setPeriodo(e.target.value)}
-                        placeholder="Ex: 8º período"
-                        className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
-                    />
-                    </div>
+                        {cursos.map((cursoItem) => (
+                          <option key={cursoItem} value={cursoItem}>
+                            {cursoItem}
+                          </option>
+                        ))}
+                      </select>
+                  </div>
+
+                  <select
+                    value={periodo}
+                    onChange={(e) => setPeriodo(e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
+                    required
+                  >
+                    <option value="">Selecione seu período</option>
+
+                    {periodos.map((periodoItem) => (
+                      <option key={periodoItem} value={periodoItem}>
+                        {periodoItem}
+                      </option>
+                    ))}
+                  </select>
                 </>
-                )}
+              )}
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
                 <label className="text-sm font-medium text-slate-700">
                   E-mail
                 </label>
                 <input
                   type="email"
-                  placeholder="seuemail@exemplo.com"
+                  placeholder={
+                    modoCadastro
+                      ? "seu.nome@alunos.utfpr.edu.br"
+                      : "seu e-mail"
+                  }
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-400"
                   required
                 />
+
+                {modoCadastro && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Apenas e-mails @alunos.utfpr.edu.br podem criar conta.
+                  </p>
+                )}
               </div>
 
               <div>

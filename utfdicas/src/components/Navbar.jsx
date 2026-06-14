@@ -42,6 +42,7 @@ function Navbar() {
           <Link to="/materias">Matérias</Link>
           <Link to="/professores">Professores</Link>
           <Link to="/nova-dica">Nova Dica</Link>
+          <Link to="/nova-avaliacao">Nova Avaliação</Link>
           <Link to="/perfil">Perfil</Link>
 
           {user ? (
