@@ -57,7 +57,7 @@ function DicaCard({
               : "bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700"
           }`}
         >
-          {curtido ? "💜 Curtido" : `👍 ${curtidas}`}
+          {curtido ? `💜 ${curtidas}` : `👍 ${curtidas}`}
         </button>
       </div>
     </div>

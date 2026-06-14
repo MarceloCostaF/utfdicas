@@ -13,10 +13,69 @@ function ProfessorDetalhe() {
   const [loading, setLoading] = useState(true)
   const [materiasProfessor, setMateriasProfessor] = useState([])
   const [avaliacoes, setAvaliacoes] = useState([])
+  const [curtidasUsuario, setCurtidasUsuario] = useState([])
+  const [user, setUser] = useState(null)
 
   useEffect(() => {
     carregarDados()
   }, [])
+
+
+  async function curtirDica(id, curtidasAtuais) {
+    if (!user) {
+      alert("Você precisa estar logado para curtir.")
+      return
+    }
+
+    const jaCurtiu = curtidasUsuario.includes(id)
+
+    if (jaCurtiu) {
+      await supabase
+        .from("curtidas")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("dica_id", id)
+
+      await supabase
+        .from("dicas")
+        .update({ curtidas: curtidasAtuais - 1 })
+        .eq("id", id)
+
+      setCurtidasUsuario((atual) =>
+        atual.filter((dicaId) => dicaId !== id)
+      )
+
+      setDicas((atuais) =>
+        atuais.map((dica) =>
+          dica.id === id
+            ? { ...dica, curtidas: curtidasAtuais - 1 }
+            : dica
+        )
+      )
+    } else {
+      await supabase
+        .from("curtidas")
+        .insert({
+          user_id: user.id,
+          dica_id: id,
+        })
+
+      await supabase
+        .from("dicas")
+        .update({ curtidas: curtidasAtuais + 1 })
+        .eq("id", id)
+
+      setCurtidasUsuario((atual) => [...atual, id])
+
+      setDicas((atuais) =>
+        atuais.map((dica) =>
+          dica.id === id
+            ? { ...dica, curtidas: curtidasAtuais + 1 }
+            : dica
+        )
+      )
+    }
+  }
 
   async function carregarDados() {
     const { data: professorData, error: professorError } = await supabase
@@ -24,6 +83,18 @@ function ProfessorDetalhe() {
       .select("*")
       .eq("id", id)
       .single()
+
+    const { data: userData } = await supabase.auth.getUser()
+      setUser(userData.user)
+
+      if (userData.user) {
+        const { data: curtidasData } = await supabase
+          .from("curtidas")
+          .select("dica_id")
+          .eq("user_id", userData.user.id)
+
+        setCurtidasUsuario(curtidasData?.map((c) => c.dica_id) || [])
+      }
 
     const { data: materiasProfessor } = await supabase
       .from("professor_materia")
@@ -223,6 +294,8 @@ function ProfessorDetalhe() {
                 dica={dica.dica}
                 autor={dica.perfis?.nome || dica.autor || "Anônimo"}
                 curtidas={dica.curtidas || 0}
+                curtido={curtidasUsuario.includes(dica.id)}
+                onCurtir={() => curtirDica(dica.id, dica.curtidas || 0)}
                 />
               ))}
             </div>
